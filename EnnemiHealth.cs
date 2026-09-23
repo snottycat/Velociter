@@ -44,7 +44,7 @@ public class EnnemiHealth : MonoBehaviour
     public void OnCollisionEnter2D(Collision2D collision)
     {
         float impactPower = collision.GetContact(0).relativeVelocity.magnitude;
-        HealthChange(-Mathf.FloorToInt(impactPower / 10));
+        HealthChange(-Mathf.Clamp(Mathf.FloorToInt(impactPower / 10) - 1, 0, Mathf.Infinity));
         GameObject particle = Instantiate(GameManager._gameManager._hitParticle);
         particle.transform.position = collision.GetContact(0).point;
         var main = particle.GetComponent<ParticleSystem>().main;

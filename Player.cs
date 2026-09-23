@@ -243,7 +243,7 @@ public class Player : MonoBehaviour
     public void UpdateCam(float coef, float damp)
     {
         _cam.transform.position = Vector3.Lerp(_cam.transform.position, new Vector3(transform.position.x * coef, transform.position.y * coef, _cam.transform.position.z), damp);
-        _cam.GetComponent<Camera>().orthographicSize = Mathf.Lerp(_cam.GetComponent<Camera>().orthographicSize, Mathf.Clamp(12.5f + _speed * 0.1f, 10f, 25f), damp);
+        _cam.GetComponent<Camera>().orthographicSize = Mathf.Lerp(_cam.GetComponent<Camera>().orthographicSize, Mathf.Clamp(7.5f + _speed * 0.1f, 5f, 25f), damp);
         _UIcam.transform.position = Vector3.forward * (-60 + _speed * 0.1f);
         _UIcam.GetComponent<Camera>().fieldOfView = Mathf.Clamp(27.5f + _speed * 0.1f, 10f, 30f);
         _backgroundCam.GetComponent<Camera>().fieldOfView = Mathf.Clamp(40 + _speed * 0.5f, 30f, 100f);

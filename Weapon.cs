@@ -8,7 +8,8 @@ public class Weapon : MonoBehaviour
     public LineRenderer _line;
     public Animation _anim;
     public LayerMask _shootInteract;
-    public GameObject _viseur;
+    public GameObject _viseur, _propels, _hull;
+    public Sprite _fixedHull;
 
     [Header("Parents")]
     public GameObject _mainUser;
@@ -17,16 +18,48 @@ public class Weapon : MonoBehaviour
     public CurrentMode _currentMode;
     public CurrentWeapon _currentWeapon;
     public CurrentState _currentWeaponState;
+    public Gun _gun;
     public Laser _laser;
     public Rocket _rocket;
     public enum CurrentMode {Fixed, Drone, AssaultDrone}
-    public enum CurrentWeapon {Laser = 1, Rocket = 2, ShootGun = 3}
+    public enum CurrentWeapon {Gun = 1,Laser = 2, Rocket = 3}
     public enum CurrentState {Shooting, Aiming, Waiting, Cooldown, Disabled}
 
     [Header("Drone Mode")]
     public float _orbitDistance;
     public float _orbitSpeed;
     public GameObject _currentTarget;
+    public Sprite _droneHull;
+
+    [Serializable]
+    public class Gun
+    {
+        public Weapon script;
+        public GameObject prefabBullet;
+        public Color bulletColor;
+        public int damages, bulletCount;
+        public float speed, lifetime, bulletSize,cooldownDuration;
+        public Vector2 spawnOffset;
+        public CurrentState currentState;
+
+        public void Shoot(Color color)
+        {
+            GameObject bullet = Instantiate(prefabBullet);
+            bullet.transform.position = script.gameObject.transform.TransformPoint(spawnOffset);
+            bullet.transform.rotation = script.gameObject.transform.rotation;
+            bullet.transform.localScale = Vector3.one * bulletSize;
+            bullet.GetComponent<SpriteRenderer>().color = color;
+            bullet.GetComponent<Bullet>()._launcher = script;
+            script.StartCoroutine(this.ICooldown(this.cooldownDuration));
+        }
+
+        public IEnumerator ICooldown(float duration)
+        {
+            currentState = CurrentState.Cooldown;
+            yield return new WaitForSeconds(duration);
+            currentState = CurrentState.Waiting;
+        }
+    }
 
     [Serializable]
     public class Laser
@@ -243,17 +276,21 @@ public class Weapon : MonoBehaviour
         }
     }
 
-    public class ShootGun
-    {
-        
-    }
-
     void Awake()
     {
-        if (_currentMode == CurrentMode.Drone)
+        switch (_currentMode)
         {
-            transform.position = _mainUser.transform.position + Vector3.up * _orbitDistance;
-
+            case CurrentMode.Fixed:
+                ChangeHull(_currentMode);
+                break;
+            case CurrentMode.Drone:
+                ChangeHull(_currentMode);
+                transform.position = _mainUser.transform.position + Vector3.up * _orbitDistance;
+                break;
+            case CurrentMode.AssaultDrone:
+                ChangeHull(_currentMode);
+                transform.position = _mainUser.transform.position + Vector3.up * _orbitDistance;
+                break;
         }
     }
 
@@ -327,7 +364,7 @@ public class Weapon : MonoBehaviour
         {
             float angleTarget = GameManager.DirectionToAngle(target);
             float angleWeapon = GameManager.DirectionToAngle((Vector2)(transform.position - _mainUser.transform.position).normalized);
-            transform.RotateAround(_mainUser.transform.position, Vector3.forward, (angleTarget - angleWeapon) * Time.fixedDeltaTime * _orbitSpeed);
+            transform.RotateAround(_mainUser.transform.position, Vector3.forward, Mathf.DeltaAngle(angleWeapon, angleTarget) * Time.fixedDeltaTime * _orbitSpeed);
         }
     }
 
@@ -337,7 +374,32 @@ public class Weapon : MonoBehaviour
         {
             float angleTarget = GameManager.DirectionToAngle((Vector2)(target.transform.position - _mainUser.transform.position).normalized);
             float angleWeapon = GameManager.DirectionToAngle((Vector2)(transform.position - _mainUser.transform.position).normalized);
-            transform.RotateAround(_mainUser.transform.position, Vector3.forward, (angleTarget - angleWeapon) * Time.fixedDeltaTime * _orbitSpeed);
+            transform.RotateAround(_mainUser.transform.position, Vector3.forward, Mathf.DeltaAngle(angleWeapon, angleTarget) * Time.fixedDeltaTime * _orbitSpeed);
+        }
+    }
+
+    public void ChangeHull(CurrentMode mode)
+    {
+        switch (mode)
+        {
+            case CurrentMode.Fixed:
+                _hull.GetComponent<SpriteRenderer>().sprite = _fixedHull;
+                _hull.transform.localPosition = Vector3.up * -0.65F;
+                _hull.transform.localScale = Vector3.one * 2.75f;
+                _propels.SetActive(false);
+                break;
+            case CurrentMode.Drone:
+                _hull.GetComponent<SpriteRenderer>().sprite = _droneHull;
+                _hull.transform.localPosition = Vector3.up * -0.4f;
+                _hull.transform.localScale = Vector3.one * 1.75f;
+                _propels.SetActive(true);
+                break;
+            case CurrentMode.AssaultDrone:
+                _hull.GetComponent<SpriteRenderer>().sprite = _droneHull;
+                _hull.transform.localPosition = Vector3.up * -0.4f;
+                _hull.transform.localScale = Vector3.one * 1.75f;
+                _propels.SetActive(true);
+                break;
         }
     }
 }
