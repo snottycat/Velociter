@@ -6,6 +6,7 @@ using TMPro;
 using System;
 using System.Collections.Generic;
 using System.Collections;
+using JetBrains.Annotations;
 
 public class Player : MonoBehaviour
 {
@@ -57,8 +58,6 @@ public class Player : MonoBehaviour
 
     [Header("Inputs")]
     public Vector2 _worldMousePosition, _savedDirection;
-    public enum CurrentDevice {Gamepad, Keyboard, Mobile, Unknow}
-    public CurrentDevice _currentDevice;
     private InputAction _mousePosition, _direction, _dash, _drift, _shoot, _changeWeapon;
 
     void Awake()
@@ -83,7 +82,8 @@ public class Player : MonoBehaviour
         {
             Instantiate(_prefabDashUI, _dashCountUI.transform);
         }
-        _currentDevice = CurrentDevice.Unknow;
+        GameManager._gameManager._currentDevice = GameManager.CurrentDevice.Unknow;
+        _weapon._gun.bulletCountUI.text = _weapon._gun.bulletCount.ToString();
         UIChangeColor(_defaultUIColor);
         WeaponChange(1);
     }
@@ -134,11 +134,11 @@ public class Player : MonoBehaviour
         _movement = Vector2.zero;
         if (!_isDiing)
         {
-            if (_currentDevice == CurrentDevice.Keyboard)
+            if (GameManager._gameManager._currentDevice == GameManager.CurrentDevice.Keyboard)
             {
                 UpdateDirection();
             }
-            if (_currentDevice == CurrentDevice.Mobile && _joystick.transform.gameObject.GetComponent<PinePie.SimpleJoystick.JoystickController>().isDraged)
+            if (GameManager._gameManager._currentDevice == GameManager.CurrentDevice.Mobile && _joystick.transform.gameObject.GetComponent<PinePie.SimpleJoystick.JoystickController>().isDraged)
             {
                 UpdateDirection();
             }
@@ -161,32 +161,29 @@ public class Player : MonoBehaviour
 
     public void InputHub(InputAction.CallbackContext context)
     {
-        if (context.control.device is Gamepad && _currentDevice != CurrentDevice.Gamepad)
+        if (GameManager._gameManager._currentDevice != GameManager.CurrentDevice.Gamepad)
         {
             _joystick.SetActive(false);
             _dashButton.SetActive(false);
             _weaponButton.SetActive(false);
             _driftButton.SetActive(false);
             _laserWeaponUI.transform.parent.localScale = new Vector3(0.05f, 0.05f, 1f);
-            _currentDevice = CurrentDevice.Gamepad;
         }
-        else if ((context.control.device is Keyboard || context.control.device is Mouse) && _currentDevice != CurrentDevice.Keyboard)
+        else if (GameManager._gameManager._currentDevice != GameManager.CurrentDevice.Keyboard)
         {
             _joystick.SetActive(false);
             _dashButton.SetActive(false);
             _weaponButton.SetActive(false);
             _driftButton.SetActive(false);
             _laserWeaponUI.transform.parent.localScale = new Vector3(0.05f, 0.05f, 1f);
-            _currentDevice = CurrentDevice.Keyboard;
         }
-        else if (context.control.device is Touchscreen && _currentDevice != CurrentDevice.Mobile)
+        else if (GameManager._gameManager._currentDevice != GameManager.CurrentDevice.Mobile)
         {
             _joystick.SetActive(true);
             _dashButton.SetActive(true);
             _weaponButton.SetActive(true);
             _driftButton.SetActive(true);
             _laserWeaponUI.transform.parent.localScale = new Vector3(0.06f, 0.06f, 1f);
-            _currentDevice = CurrentDevice.Mobile;
         }
         if (!_isDiing)
         {
@@ -209,7 +206,7 @@ public class Player : MonoBehaviour
                     _isDrifting = false;
                 }
             }
-            if (context.action == _shoot && _currentDevice != CurrentDevice.Mobile)
+            if (context.action == _shoot && GameManager._gameManager._currentDevice != GameManager.CurrentDevice.Mobile)
             {
                 if (context.performed && !GameManager._gameManager.IsOnUI())
                 {
@@ -238,7 +235,7 @@ public class Player : MonoBehaviour
     public void UpdateSpeed()
     {
         _speed = _body.linearVelocity.magnitude;
-        _speedUI.text = (Mathf.Round(_speed * 10) * 0.1f) + " m/s";
+        _speedUI.text = Mathf.Round(_speed) + " m/s";
     }
 
     public void UpdateCam(float coef, float damp)
@@ -252,17 +249,17 @@ public class Player : MonoBehaviour
 
     public void UpdateDirection()
     {
-        if (_currentDevice == CurrentDevice.Gamepad)
+        if (GameManager._gameManager._currentDevice == GameManager.CurrentDevice.Gamepad)
         {
             _savedDirection = Vector2.Lerp(_savedDirection, _direction.ReadValue<Vector2>(), 0.5f);
             transform.rotation = Quaternion.Euler(0f, 0f, GameManager.DirectionToAngle(_savedDirection));
         }
-        if (_currentDevice == CurrentDevice.Keyboard)
+        if (GameManager._gameManager._currentDevice == GameManager.CurrentDevice.Keyboard)
         {
             _worldMousePosition = (Vector2)_cam.GetComponent<Camera>().ScreenToWorldPoint(new Vector3(_mousePosition.ReadValue<Vector2>().x, _mousePosition.ReadValue<Vector2>().y));
             transform.rotation = Quaternion.Lerp(transform.rotation, Quaternion.Euler(0f, 0f, GameManager.DirectionToAngle(_worldMousePosition - (Vector2)transform.position)), 0.5f);
         }
-        if (_currentDevice == CurrentDevice.Mobile)
+        if (GameManager._gameManager._currentDevice == GameManager.CurrentDevice.Mobile)
         {
             _savedDirection = Vector2.Lerp(_savedDirection, (Vector2)(_joystick.transform.GetChild(0).GetChild(0).position - _joystick.transform.GetChild(0).position).normalized, 0.5f);
             transform.rotation = Quaternion.Euler(0f, 0f, GameManager.DirectionToAngle(_savedDirection));
@@ -316,12 +313,17 @@ public class Player : MonoBehaviour
     {
         if (_weapon._currentWeaponState == Weapon.CurrentState.Waiting)
         {
-            if (_currentDevice == CurrentDevice.Gamepad || _currentDevice == CurrentDevice.Mobile)
+            if (GameManager._gameManager._currentDevice == GameManager.CurrentDevice.Gamepad || GameManager._gameManager._currentDevice == GameManager.CurrentDevice.Mobile)
             {
                 switch (_weapon._currentWeapon)
                 {
                     case Weapon.CurrentWeapon.Gun:
                         _weapon._gun.Shoot(Color.orange);
+                        if (_weapon._gun.bulletCount <= 0)
+                        {
+                            _gunWeaponUI.GetComponentInChildren<Animator>().Play("cooldownUI");
+                            _gunWeaponUI.GetComponentInChildren<Animator>().SetFloat("speed", 1 / _weapon._gun.reloadDuration);
+                        }
                         break;
                     case Weapon.CurrentWeapon.Laser:
                         _weapon._laser.AimCheck(Color.red);
@@ -331,12 +333,17 @@ public class Player : MonoBehaviour
                         break;
                 }
             }
-            if (_currentDevice == CurrentDevice.Keyboard)
+            if (GameManager._gameManager._currentDevice == GameManager.CurrentDevice.Keyboard)
             {
                 switch (_weapon._currentWeapon)
                 {
                     case Weapon.CurrentWeapon.Gun:
                         _weapon._gun.Shoot(Color.orange);
+                        if (_weapon._gun.bulletCount <= 0)
+                        {
+                            _gunWeaponUI.GetComponentInChildren<Animator>().Play("cooldownUI");
+                            _gunWeaponUI.GetComponentInChildren<Animator>().SetFloat("speed", 1 / _weapon._gun.reloadDuration);
+                        }
                         break;
                     case Weapon.CurrentWeapon.Laser:
                         _weapon._laser.AimCheck(Color.red);
@@ -354,7 +361,7 @@ public class Player : MonoBehaviour
         _isShooting = false;
         if (_weapon._currentWeaponState == Weapon.CurrentState.Waiting)
         {
-            if (_currentDevice == CurrentDevice.Gamepad || _currentDevice == CurrentDevice.Mobile)
+            if (GameManager._gameManager._currentDevice == GameManager.CurrentDevice.Gamepad || GameManager._gameManager._currentDevice == GameManager.CurrentDevice.Mobile)
             {
                 switch (_weapon._currentWeapon)
                 {
@@ -370,7 +377,7 @@ public class Player : MonoBehaviour
                         break;
                 }
             }
-            if (_currentDevice == CurrentDevice.Keyboard)
+            if (GameManager._gameManager._currentDevice == GameManager.CurrentDevice.Keyboard)
             {
                 switch (_weapon._currentWeapon)
                 {
@@ -393,11 +400,11 @@ public class Player : MonoBehaviour
     {
         _weapon._line.enabled = false;
         _weapon._viseur.SetActive(false);
-        if (_currentDevice == CurrentDevice.Gamepad && _changeWeapon.WasPerformedThisFrame())
+        if (GameManager._gameManager._currentDevice == GameManager.CurrentDevice.Gamepad && _changeWeapon.WasPerformedThisFrame())
         {
             _weapon._currentWeapon = (Weapon.CurrentWeapon)Mathf.Clamp((int)_weapon._currentWeapon + Mathf.Round(_changeWeapon.ReadValue<float>()), 1, 3);
         }
-        else if (_currentDevice == CurrentDevice.Keyboard || _currentDevice == CurrentDevice.Mobile || !_changeWeapon.WasPerformedThisFrame())
+        else if (GameManager._gameManager._currentDevice == GameManager.CurrentDevice.Keyboard || GameManager._gameManager._currentDevice == GameManager.CurrentDevice.Mobile || !_changeWeapon.WasPerformedThisFrame())
         {
             _weapon._currentWeapon = (Weapon.CurrentWeapon)Mathf.Clamp(value, 1, 3);
         }
@@ -432,11 +439,11 @@ public class Player : MonoBehaviour
             }
             else
             {
-                if (_currentDevice == CurrentDevice.Keyboard || _currentDevice == CurrentDevice.Mobile)
+                if (GameManager._gameManager._currentDevice == GameManager.CurrentDevice.Keyboard || GameManager._gameManager._currentDevice == GameManager.CurrentDevice.Mobile)
                 {
                     _body.linearVelocity = (_worldMousePosition - (Vector2)transform.position).normalized * _speed;
                 }
-                else if (_currentDevice == CurrentDevice.Gamepad)
+                else if (GameManager._gameManager._currentDevice == GameManager.CurrentDevice.Gamepad)
                 {
                     _body.linearVelocity = _direction.ReadValue<Vector2>() * _speed;
                 }
@@ -456,15 +463,15 @@ public class Player : MonoBehaviour
         if (_canDash)
         {
             DashChange(-1);
-            if ( _currentDevice == CurrentDevice.Mobile)
+            if ( GameManager._gameManager._currentDevice == GameManager.CurrentDevice.Mobile)
             {
                 _body.linearVelocity = _savedDirection * _speed;
             }
-            if (_currentDevice == CurrentDevice.Keyboard)
+            if (GameManager._gameManager._currentDevice == GameManager.CurrentDevice.Keyboard)
             {
                 _body.linearVelocity = (_worldMousePosition - (Vector2)transform.position).normalized * _speed;
             }
-            else if (_currentDevice == CurrentDevice.Gamepad)
+            else if (GameManager._gameManager._currentDevice == GameManager.CurrentDevice.Gamepad)
             {
                 _body.linearVelocity = _direction.ReadValue<Vector2>() * _speed;
             }
@@ -492,6 +499,10 @@ public class Player : MonoBehaviour
         {
             images.Reverse();
             GaugeChangeUI(images, amout);
+            if (!_isDiing)
+            {
+                UIChangeColor(Color.red, 0.1f);
+            }
             _anim.Play("damageTaken");
         }
         if (_health == 0)
@@ -540,7 +551,7 @@ public class Player : MonoBehaviour
         }
     }
 
-    public IEnumerator IDie(float slowMotionDuration = 1.5f)
+    public IEnumerator IDie(float slowMotionDuration = 2f)
     {
         _isDiing = true;
         UIChangeColor(Color.red);
@@ -552,24 +563,47 @@ public class Player : MonoBehaviour
         _body.linearDamping = 1f;
         Time.timeScale = 0.2f;
         yield return new WaitForSecondsRealtime(slowMotionDuration);
-        Time.timeScale = 1f;
-        yield return new WaitForSecondsRealtime(1f);
         GameManager._gameManager.SceneChange("Menu");
     }
 
-    public void UIChangeColor(Color color, GameObject UI = null)
+    public void UIChangeColor(Color color, float during = 0, GameObject UI = null)
     {
         if (UI == null)
         {
-            _healthCountUI.GetComponent<Image>().color = color;
-            _dashCountUI.GetComponent<Image>().color = color;
-            _speedUI.gameObject.transform.parent.gameObject.GetComponent<Image>().color = color;
-            _waveUI.gameObject.transform.parent.gameObject.GetComponent<Image>().color = color;
-            _laserWeaponUI.transform.parent.gameObject.GetComponent<Image>().color = color;
+            if (during == 0)
+            {
+                _healthCountUI.GetComponent<Image>().color = color;
+                _dashCountUI.GetComponent<Image>().color = color;
+                _speedUI.gameObject.transform.parent.gameObject.GetComponent<Image>().color = color;
+                _waveUI.gameObject.transform.parent.gameObject.GetComponent<Image>().color = color;
+                _laserWeaponUI.transform.parent.gameObject.GetComponent<Image>().color = color;
+            }
+            else
+            {
+                StartCoroutine(IChangeColor(color, _healthCountUI.GetComponent<Image>(), during));
+                StartCoroutine(IChangeColor(color, _dashCountUI.GetComponent<Image>(), during));
+                StartCoroutine(IChangeColor(color, _speedUI.gameObject.transform.parent.gameObject.GetComponent<Image>(), during));
+                StartCoroutine(IChangeColor(color, _waveUI.gameObject.transform.parent.gameObject.GetComponent<Image>(), during));
+                StartCoroutine(IChangeColor(color, _laserWeaponUI.transform.parent.gameObject.GetComponent<Image>(), during));
+            }
         }
         else
         {
-            UI.GetComponent<Image>().color = color;
+            if (during == 0)
+            {
+                UI.GetComponent<Image>().color = color;
+            }
+            else
+            {
+                IChangeColor(color, UI.GetComponent<Image>(), during);
+            }
+        }
+
+        IEnumerator IChangeColor(Color timedColor, Image target, float duration)
+        {
+            target.color = timedColor;
+            yield return new WaitForSeconds(duration);
+            target.color = _defaultUIColor;
         }
     }
 }

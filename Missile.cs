@@ -85,6 +85,9 @@ public class Missile : MonoBehaviour
                         }
                         item.GetComponent<EnnemiHealth>()?.HealthChange(-_launcher._rocket.damages);
                         break;
+                    case 12:
+                        item.GetComponent<EnnemiHealth>()?.HealthChange(-_launcher._rocket.damages);
+                        break;
                 }
             }
             _healthSystem.HealthChange(-_launcher._rocket.damages);
@@ -125,6 +128,14 @@ public class Missile : MonoBehaviour
     {
         _objectsInExplosion.Add(collider.gameObject);
     }
+
+    public void OnTriggerStay2D(Collider2D collider)
+    {
+        if (!_objectsInExplosion.Contains(collider.gameObject))
+        {
+            _objectsInExplosion.Add(collider.gameObject);
+        }
+    } 
 
     public void OnTriggerExit2D(Collider2D collider)
     {

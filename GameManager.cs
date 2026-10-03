@@ -3,17 +3,23 @@ using UnityEngine;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine.SceneManagement;
+using UnityEngine.InputSystem;
 using TMPro;
 using UnityEngine.UI;
 using UnityEngine.EventSystems;
 using Random = UnityEngine.Random;
+using JetBrains.Annotations;
+using UnityEngine.InputSystem.LowLevel;
+using UnityEngine.iOS;
 
 public class GameManager : MonoBehaviour
 {
     [Header("General")]
     public static GameManager _gameManager;
     public enum GameState {InMenu = 0, InWaveGame = 1, InPause = 2}
+    public enum CurrentDevice {Gamepad, Keyboard, Mobile, Unknow}
     public GameState _gameState;
+    public CurrentDevice _currentDevice;
     public Texture2D _cursorSprite;
     public GameObject _asteroidPrefab;
     public GameObject _borderPrefab;
@@ -23,6 +29,7 @@ public class GameManager : MonoBehaviour
     [Header("Menu")]
     public GameObject firstSelected;
     public TMP_Text _versionDisplay;
+    public GameObject _irisOfEye;
 
     [Header("WaveMode")]
     public WaveManager _waveManager;
@@ -32,6 +39,7 @@ public class GameManager : MonoBehaviour
     public GameObject _explosionParticle;
     public GameObject _hitParticle;
     public GameObject _dashParticle;
+    public GameObject _spawnParticle;
 
     [Serializable]
     public class WaveManager
@@ -45,7 +53,6 @@ public class GameManager : MonoBehaviour
         public IEnumerator IWaveChange()
         {
             script.inWave = false;
-            int enemyNumber = Mathf.RoundToInt(_waveNumber / 2);
             _waveNumber++;
             _enemiesToSpawn.Clear();
             for (int restDifficulty = _waveNumber; restDifficulty > 0;)
@@ -66,12 +73,11 @@ public class GameManager : MonoBehaviour
             Player._player._waveUI.text = "Wave " + _waveNumber;
             foreach(var item in _enemiesToSpawn)
             {
-                SpawnEnemy(item, 7.5f);
+                SearchSpawnEnemy(item, 7.5f);
             }
-            script.inWave = true;
         }
 
-        public void SpawnEnemy(GameObject enemy, float distance = 5f)
+        public void SearchSpawnEnemy(GameObject enemy, float distance = 5f)
         {
             bool canSpawn = true;
             for (int i = 1; i < Mathf.RoundToInt(this._border.transform.localScale.x / 2 - Mathf.Max(enemy.transform.localScale.x, enemy.transform.localScale.y) - 2.5f); i++)
@@ -95,17 +101,35 @@ public class GameManager : MonoBehaviour
                 }
                 if (canSpawn)
                 {
-                    GameObject enemyInstance = Instantiate(enemy);
-                    enemyInstance.transform.position = spawnPos;
-                    script._enemiesInScene.Add(enemyInstance);
+                    script.StartCoroutine(ISpawnEnemy(enemy, spawnPos));
                     break;
                 }
             }
             if (!canSpawn)
             {
                 this._border.transform.localScale += Vector3.one * 5f;
-                this.SpawnEnemy(enemy, distance);
+                this.SearchSpawnEnemy(enemy, distance);
             }
+        }
+
+        public IEnumerator ISpawnEnemy(GameObject enemy, Vector2 pos)
+        {
+            GameObject particle = Instantiate(script._spawnParticle);
+            particle.transform.position = pos;
+            particle.transform.localScale = Vector3.one * (enemy.transform.localScale.x + enemy.transform.localScale.y) * 0.5f;
+            GameObject enemyInstance = Instantiate(enemy);
+            enemyInstance.SetActive(false);
+            enemyInstance.transform.position = pos;
+            script._enemiesInScene.Add(enemyInstance);
+            yield return new WaitForSeconds(2f);
+            Destroy(particle.GetComponent<PointEffector2D>());
+            Destroy(particle.GetComponent<Collider2D>());
+            particle.GetComponentInChildren<ParticleSystemForceField>().gravity = -3f;
+            particle.GetComponentInChildren<ParticleSystemForceField>().gravityFocus = 0f;
+            particle.GetComponentInChildren<ParticleSystemForceField>().endRange = 0.5f;
+            particle.GetComponentInChildren<ParticleSystemForceField>().drag = 0f;
+            enemyInstance.SetActive(true);
+            script.inWave = true;
         }
 
         public WaveManager(GameManager script, int waveNumber, float waveChangeDuration, float enemyNumberCoef)
@@ -144,28 +168,36 @@ public class GameManager : MonoBehaviour
         }
     }
 
-    public void CameraShake(int duration, float magnitude)
+    void OnEnable()
     {
-        IEnumerator ICameraShake()
-        {
-            for (int i = 0; i < duration; i++)
-            {
-                Camera.main.transform.position += (Vector3)Random.insideUnitCircle * magnitude;
-                yield return new WaitForSeconds(0.05f);
-            }
-        }
-        StartCoroutine(ICameraShake());
-    }
-
-    public bool IsOnUI()
-    {
-        return EventSystem.current.IsPointerOverGameObject();
+        InputSystem.onEvent += DeviceTest;
     }
 
     public void OnDisable()
     {
         _gameManager = null;
         SceneManager.sceneLoaded -= OnSceneLoaded;
+        InputSystem.onEvent -= DeviceTest;
+    }
+
+    public void DeviceTest(InputEventPtr eventPtr, InputDevice device)
+    {
+        switch (device)
+        {
+            case Gamepad:
+                _currentDevice = CurrentDevice.Gamepad;
+                break;
+            case Keyboard:
+                _currentDevice = CurrentDevice.Keyboard;
+                break;
+            case Mouse:
+                _currentDevice = CurrentDevice.Keyboard;
+                break;
+            case Touchscreen:
+                _currentDevice = CurrentDevice.Mobile;
+                break;
+        }
+        print($"le device est {_currentDevice}");
     }
 
     public void OnSceneLoaded(Scene scene, LoadSceneMode mode)
@@ -174,7 +206,7 @@ public class GameManager : MonoBehaviour
         {
             case "Menu":
                 _gameState = GameState.InMenu;
-                if (firstSelected != null)
+                if (firstSelected != null && _currentDevice == CurrentDevice.Gamepad)
                 {
                     EventSystem.current.SetSelectedGameObject(firstSelected);
                 }
@@ -200,10 +232,31 @@ public class GameManager : MonoBehaviour
                     asteroid.GetComponent<MeshRenderer>().material.SetColor("_BaseColor", new Color(randomColor, randomColor, randomColor, 1f));
                     asteroid.transform.SetParent(_waveManager._asteroidGroup.transform);
                 }
-                Cursor.SetCursor(_cursorSprite, new Vector2(_cursorSprite.width / 2, _cursorSprite.height / 2), CursorMode.Auto);
+                if (_currentDevice == CurrentDevice.Keyboard)
+                {
+                    Cursor.SetCursor(_cursorSprite, new Vector2(_cursorSprite.width / 2, _cursorSprite.height / 2), CursorMode.Auto);
+                }
                 StartCoroutine(_waveManager.IWaveChange());
                 break;
         }
+    }
+
+    public bool IsOnUI()
+    {
+        return EventSystem.current.IsPointerOverGameObject();
+    }
+
+    public void CameraShake(int duration, float magnitude)
+    {
+        IEnumerator ICameraShake()
+        {
+            for (int i = 0; i < duration; i++)
+            {
+                Camera.main.transform.position += (Vector3)Random.insideUnitCircle * magnitude;
+                yield return new WaitForSeconds(0.05f);
+            }
+        }
+        StartCoroutine(ICameraShake());
     }
 
     public void GameStateChange(GameState state)
@@ -236,8 +289,16 @@ public class GameManager : MonoBehaviour
         //return Mathf.Atan2(direction.y, direction.x) * Mathf.Rad2Deg - 90f;
     }
 
+    public void OpenLink(string link)
+    {
+        Application.OpenURL(link);
+    }
+
     public void ExitGame()
     {
-        Application.Quit();
+        if (Application.platform != RuntimePlatform.WebGLPlayer)
+        {
+            Application.Quit();
+        }
     }
 }

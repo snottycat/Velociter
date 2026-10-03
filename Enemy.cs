@@ -8,20 +8,28 @@ public class Enemy : MonoBehaviour
     public Rigidbody2D _body;
     public Animator _anim;
     public Renderer _renderer;
-    public GameObject _eye, _pupil, _pinPrefab, _pin;
+    public GameObject _eye, _iris, _pupil, _pinPrefab, _pin;
     public int _difficulty;
 
     void Awake()
     {
         _weapon._currentTarget = Player._player.gameObject;
-        _pupil = _eye.transform.GetChild(0).GetChild(0).gameObject;
-        StartCoroutine(IEyeBlink(5f));
+        _iris = _eye.transform.GetChild(0).GetChild(0).gameObject;
+        _pupil = _iris.transform.GetChild(0).gameObject;
+        _iris.GetComponent<SpriteRenderer>().color = new Color(Random.Range(0.1f, 0.9f), Random.Range(0.1f, 0.9f), Random.Range(0.1f, 0.9f), 1f);
     }
 
+    void Start()
+    {
+        _anim.Play("OpenEye");
+        StartCoroutine(IEyeBlink(Random.Range(2f, 5f)));
+        StartCoroutine(ISpawn(Random.Range(1f, 2f)));
+    }
+    
     void FixedUpdate()
     {
         _eye.transform.rotation = Quaternion.Euler(0, 0, 0);
-        _pupil.transform.position = _pupil.transform.parent.TransformPoint((Player._player.gameObject.transform.position - _pupil.transform.parent.position).normalized * 0.2f);
+        _iris.transform.position = _iris.transform.parent.TransformPoint((Player._player.gameObject.transform.position - _iris.transform.parent.position).normalized * 0.2f);
         if (!_renderer.isVisible)
         {
             if (_pin == null)
@@ -50,6 +58,13 @@ public class Enemy : MonoBehaviour
     {
         yield return new WaitForSeconds(duration);
         _anim.Play("EyeBlinking");
-        StartCoroutine(IEyeBlink(duration));
+        StartCoroutine(IEyeBlink(Random.Range(2f, 5f)));
+    }
+
+    public IEnumerator ISpawn(float duration)
+    {
+        _weapon._active = false;
+        yield return new WaitForSeconds(duration);
+        _weapon._active = true;
     }
 }

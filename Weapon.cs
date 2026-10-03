@@ -2,6 +2,8 @@ using System;
 using UnityEngine;
 using System.Collections;
 using System.Collections.Generic;
+using UnityEngine.UI;
+using TMPro;
 
 public class Weapon : MonoBehaviour
 {
@@ -26,6 +28,7 @@ public class Weapon : MonoBehaviour
     public enum CurrentState {Shooting, Aiming, Waiting, Cooldown, Disabled}
 
     [Header("Drone Mode")]
+    public bool _active;
     public float _orbitDistance;
     public float _orbitSpeed;
     public GameObject _currentTarget;
@@ -36,6 +39,7 @@ public class Weapon : MonoBehaviour
     {
         public Weapon script;
         public GameObject prefabBullet;
+        public TMP_Text bulletCountUI;
         public Color bulletColor;
         public int bulletCount, maxAmmo;
         public float speed, lifetime, bulletSize, fireRate, reloadDuration;
@@ -49,11 +53,14 @@ public class Weapon : MonoBehaviour
                 GameObject bullet = Instantiate(prefabBullet);
                 bullet.transform.position = script.gameObject.transform.TransformPoint(spawnOffset);
                 bullet.transform.rotation = Quaternion.Euler(0f, 0f, GameManager.DirectionToAngle((Vector2)script.gameObject.transform.up));
-                print(bullet.transform.rotation.eulerAngles.z);
                 bullet.transform.localScale = Vector3.one * bulletSize;
                 bullet.GetComponent<SpriteRenderer>().color = color;
                 bullet.GetComponent<Bullet>()._launcher = script;
                 bulletCount--;
+                if (bulletCountUI != null)
+                {
+                    bulletCountUI.text = bulletCount.ToString();
+                }
                 if (bulletCount <= 0)
                 {
                     script.StartCoroutine(this.IReload(this.reloadDuration));
@@ -77,6 +84,10 @@ public class Weapon : MonoBehaviour
             currentState = CurrentState.Cooldown;
             yield return new WaitForSeconds(duration);
             bulletCount = maxAmmo;
+            if (bulletCountUI != null)
+            {
+                bulletCountUI.text = bulletCount.ToString();
+            }
             currentState = CurrentState.Waiting;
         }
     }
@@ -111,6 +122,9 @@ public class Weapon : MonoBehaviour
                         {
                             hit.transform?.gameObject.GetComponent<Missile>()?.Explode();
                         }
+                        hit.transform?.gameObject.GetComponent<EnnemiHealth>()?.HealthChange(-damages);
+                        break;
+                    case 12:
                         hit.transform?.gameObject.GetComponent<EnnemiHealth>()?.HealthChange(-damages);
                         break;
                 }
@@ -234,17 +248,28 @@ public class Weapon : MonoBehaviour
                 GameObject closestEnemy = null;
                 foreach (var item in enemiesInSceneCopy)
                 {
-                    if (Vector2.Distance(pos, (Vector2)item.transform.position) < distance || closestEnemy == null)
+                    if (item != null && item.activeSelf)
                     {
-                        distance = Vector2.Distance(pos, (Vector2)item.transform.position);
-                        closestEnemy = item;
+                        if (Vector2.Distance(pos, (Vector2)item.transform.position) < distance || closestEnemy == null)
+                        {
+                            distance = Vector2.Distance(pos, (Vector2)item.transform.position);
+                            closestEnemy = item;
+                        }
                     }
                 }
-                script._viseur.GetComponent<SpriteRenderer>().color = color;
-                script._viseur.SetActive(this.showViseur);
-                script._viseur.transform.position = closestEnemy.transform.position;
-                script._viseur.transform.localScale = new Vector3(Mathf.Max(closestEnemy.transform.localScale.x, closestEnemy.transform.localScale.y), Mathf.Max(closestEnemy.transform.localScale.x, closestEnemy.transform.localScale.y), 1f) * 2f;
-                return closestEnemy;
+                if (closestEnemy != null)
+                {
+                    script._viseur.GetComponent<SpriteRenderer>().color = color;
+                    script._viseur.SetActive(this.showViseur);
+                    script._viseur.transform.position = closestEnemy.transform.position;
+                    script._viseur.transform.localScale = new Vector3(Mathf.Max(closestEnemy.transform.localScale.x, closestEnemy.transform.localScale.y), Mathf.Max(closestEnemy.transform.localScale.x, closestEnemy.transform.localScale.y), 1f) * 2f;
+                    return closestEnemy;
+                }
+                else
+                {
+                    script._viseur.SetActive(false);
+                    return null;
+                }
             }
             else
             {
@@ -262,17 +287,28 @@ public class Weapon : MonoBehaviour
                 GameObject closestEnemy = null;
                 foreach (var item in enemiesInSceneCopy)
                 {
-                    if (Mathf.Abs(angle - Vector2.Angle(Vector2.right, (Vector2)item.transform.position - (Vector2)script.gameObject.transform.position)) < distance || closestEnemy == null)
+                    if (item != null)
                     {
-                        distance = Mathf.Abs(angle - Vector2.Angle(Vector2.right, (Vector2)item.transform.position - (Vector2)script.gameObject.transform.position));
-                        closestEnemy = item;
+                        if (item.activeSelf && (Mathf.Abs(angle - Vector2.Angle(Vector2.right, (Vector2)item.transform.position - (Vector2)script.gameObject.transform.position)) < distance || closestEnemy == null))
+                        {
+                            distance = Mathf.Abs(angle - Vector2.Angle(Vector2.right, (Vector2)item.transform.position - (Vector2)script.gameObject.transform.position));
+                            closestEnemy = item;
+                        }
                     }
                 }
-                script._viseur.GetComponent<SpriteRenderer>().color = color;
-                script._viseur.SetActive(this.showViseur);
-                script._viseur.transform.position = closestEnemy.transform.position;
-                script._viseur.transform.localScale = new Vector3(Mathf.Max(closestEnemy.transform.localScale.x, closestEnemy.transform.localScale.y), Mathf.Max(closestEnemy.transform.localScale.x, closestEnemy.transform.localScale.y), 1f) * 2f;
-                return closestEnemy;
+                if (closestEnemy != null)
+                {
+                    script._viseur.GetComponent<SpriteRenderer>().color = color;
+                    script._viseur.SetActive(this.showViseur);
+                    script._viseur.transform.position = closestEnemy.transform.position;
+                    script._viseur.transform.localScale = new Vector3(Mathf.Max(closestEnemy.transform.localScale.x, closestEnemy.transform.localScale.y), Mathf.Max(closestEnemy.transform.localScale.x, closestEnemy.transform.localScale.y), 1f) * 2f;
+                    return closestEnemy;
+                }
+                else
+                {
+                    script._viseur.SetActive(false);
+                    return null;
+                }
             }
             else
             {
@@ -320,6 +356,26 @@ public class Weapon : MonoBehaviour
     {
         switch (_currentWeapon)
         {
+            case CurrentWeapon.Gun:
+                _laser.equiped = false;
+                _rocket.equiped = false;
+                _currentWeaponState = _gun.currentState;
+                if (_currentMode == CurrentMode.Drone)
+                {
+                    if (_currentTarget.TryGetComponent<Rigidbody2D>(out Rigidbody2D body) && Vector3.Distance(_currentTarget.transform.position, _mainUser.transform.position) >= Vector3.Distance(transform.position, _mainUser.transform.position))
+                    {
+                        DroneOrbit(((Vector2)_currentTarget.transform.position + body.linearVelocity * (Vector2.Distance((Vector2)transform.position, (Vector2)body.linearVelocity) / _gun.speed) - (Vector2)_mainUser.transform.position).normalized);
+                    }
+                    else
+                    {
+                        DroneOrbit(_currentTarget);
+                    }
+                    if (_currentWeaponState == CurrentState.Waiting && _active && Vector3.Distance(_currentTarget.transform.position, _mainUser.transform.position) >= Vector3.Distance(transform.position, _mainUser.transform.position))
+                    {
+                        _gun.Shoot(_gun.bulletColor);
+                    }
+                }
+                break;
             case CurrentWeapon.Laser:
                 _laser.equiped = true;
                 _rocket.equiped = false;
@@ -333,7 +389,10 @@ public class Weapon : MonoBehaviour
                             break;
                         case CurrentState.Waiting:
                             DroneOrbit(_currentTarget);
-                            StartCoroutine(_laser.IAim(_laser.aimingDuration));
+                            if (_active && Vector3.Distance(_currentTarget.transform.position, _mainUser.transform.position) >= Vector3.Distance(transform.position, _mainUser.transform.position))
+                            {
+                                StartCoroutine(_laser.IAim(_laser.aimingDuration));
+                            }
                             break;
                         case CurrentState.Aiming:
                             if (_currentTarget.TryGetComponent<Rigidbody2D>(out Rigidbody2D body))
@@ -366,7 +425,7 @@ public class Weapon : MonoBehaviour
                 if (_currentMode == CurrentMode.Drone)
                 {
                     DroneOrbit(_currentTarget);
-                    if (_currentWeaponState == CurrentState.Waiting)
+                    if (_currentWeaponState == CurrentState.Waiting && _active)
                     {
                         _rocket.Shoot(_currentTarget);
                     }
