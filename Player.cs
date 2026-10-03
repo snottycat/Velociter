@@ -26,6 +26,7 @@ public class Player : MonoBehaviour
     public Weapon _weapon;
     public bool _isShooting = false;
     public float _range;
+    public GameObject _gunWeaponUI;
     public GameObject _laserWeaponUI;
     public GameObject _missileWeaponUI;
     public GameObject _weaponButton;
@@ -319,6 +320,9 @@ public class Player : MonoBehaviour
             {
                 switch (_weapon._currentWeapon)
                 {
+                    case Weapon.CurrentWeapon.Gun:
+                        _weapon._gun.Shoot(Color.orange);
+                        break;
                     case Weapon.CurrentWeapon.Laser:
                         _weapon._laser.AimCheck(Color.red);
                         break;
@@ -331,6 +335,9 @@ public class Player : MonoBehaviour
             {
                 switch (_weapon._currentWeapon)
                 {
+                    case Weapon.CurrentWeapon.Gun:
+                        _weapon._gun.Shoot(Color.orange);
+                        break;
                     case Weapon.CurrentWeapon.Laser:
                         _weapon._laser.AimCheck(Color.red);
                         break;
@@ -388,19 +395,26 @@ public class Player : MonoBehaviour
         _weapon._viseur.SetActive(false);
         if (_currentDevice == CurrentDevice.Gamepad && _changeWeapon.WasPerformedThisFrame())
         {
-            _weapon._currentWeapon = (Weapon.CurrentWeapon)Mathf.Clamp((int)_weapon._currentWeapon + Mathf.Round(_changeWeapon.ReadValue<float>()), 1, 2);
+            _weapon._currentWeapon = (Weapon.CurrentWeapon)Mathf.Clamp((int)_weapon._currentWeapon + Mathf.Round(_changeWeapon.ReadValue<float>()), 1, 3);
         }
         else if (_currentDevice == CurrentDevice.Keyboard || _currentDevice == CurrentDevice.Mobile || !_changeWeapon.WasPerformedThisFrame())
         {
-            _weapon._currentWeapon = (Weapon.CurrentWeapon)Mathf.Clamp(value, 1, 2);
+            _weapon._currentWeapon = (Weapon.CurrentWeapon)Mathf.Clamp(value, 1, 3);
         }
         switch (_weapon._currentWeapon)
         {
+            case Weapon.CurrentWeapon.Gun:
+                _gunWeaponUI.GetComponent<Image>().color = new Color(1f, 0, 0, 1f);
+                _laserWeaponUI.GetComponent<Image>().color = new Color(1f, 1f, 1f, 0.1f);
+                _missileWeaponUI.GetComponent<Image>().color = new Color(1f, 1f, 1f, 0.1f);
+                break;
             case Weapon.CurrentWeapon.Laser:
+                _gunWeaponUI.GetComponent<Image>().color = new Color(1f, 1f, 1f, 0.1f);
                 _laserWeaponUI.GetComponent<Image>().color = new Color(1f, 0, 0, 1f);
                 _missileWeaponUI.GetComponent<Image>().color = new Color(1f, 1f, 1f, 0.1f);
                 break;
             case Weapon.CurrentWeapon.Rocket:
+                _gunWeaponUI.GetComponent<Image>().color = new Color(1f, 1f, 1f, 0.1f);
                 _laserWeaponUI.GetComponent<Image>().color = new Color(1f, 1f, 1f, 0.1f);
                 _missileWeaponUI.GetComponent<Image>().color = new Color(1f, 0f, 0f, 1f);
                 break;

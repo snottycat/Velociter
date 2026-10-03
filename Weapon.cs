@@ -37,26 +37,46 @@ public class Weapon : MonoBehaviour
         public Weapon script;
         public GameObject prefabBullet;
         public Color bulletColor;
-        public int damages, bulletCount;
-        public float speed, lifetime, bulletSize,cooldownDuration;
+        public int bulletCount, maxAmmo;
+        public float speed, lifetime, bulletSize, fireRate, reloadDuration;
         public Vector2 spawnOffset;
         public CurrentState currentState;
 
         public void Shoot(Color color)
         {
-            GameObject bullet = Instantiate(prefabBullet);
-            bullet.transform.position = script.gameObject.transform.TransformPoint(spawnOffset);
-            bullet.transform.rotation = script.gameObject.transform.rotation;
-            bullet.transform.localScale = Vector3.one * bulletSize;
-            bullet.GetComponent<SpriteRenderer>().color = color;
-            bullet.GetComponent<Bullet>()._launcher = script;
-            script.StartCoroutine(this.ICooldown(this.cooldownDuration));
+            if (currentState != CurrentState.Cooldown && currentState != CurrentState.Disabled && bulletCount > 0)
+            {
+                GameObject bullet = Instantiate(prefabBullet);
+                bullet.transform.position = script.gameObject.transform.TransformPoint(spawnOffset);
+                bullet.transform.rotation = Quaternion.Euler(0f, 0f, GameManager.DirectionToAngle((Vector2)script.gameObject.transform.up));
+                print(bullet.transform.rotation.eulerAngles.z);
+                bullet.transform.localScale = Vector3.one * bulletSize;
+                bullet.GetComponent<SpriteRenderer>().color = color;
+                bullet.GetComponent<Bullet>()._launcher = script;
+                bulletCount--;
+                if (bulletCount <= 0)
+                {
+                    script.StartCoroutine(this.IReload(this.reloadDuration));
+                }
+                else
+                {
+                    script.StartCoroutine(this.ICooldown(this.fireRate));
+                }
+            }
         }
 
         public IEnumerator ICooldown(float duration)
         {
             currentState = CurrentState.Cooldown;
             yield return new WaitForSeconds(duration);
+            currentState = CurrentState.Waiting;
+        }
+
+        public IEnumerator IReload(float duration)
+        {
+            currentState = CurrentState.Cooldown;
+            yield return new WaitForSeconds(duration);
+            bulletCount = maxAmmo;
             currentState = CurrentState.Waiting;
         }
     }
@@ -175,7 +195,6 @@ public class Weapon : MonoBehaviour
             {
                 GameObject missile = Instantiate(prefabMissile);
                 missile.transform.position = script.gameObject.transform.TransformPoint(spawnOffset);
-                missile.transform.rotation = script.gameObject.transform.rotation;
                 missile.GetComponent<Missile>()._launcher = script;
                 missile.GetComponent<Missile>()._target = AimCheck(pos, color);
                 script.StartCoroutine(this.ICooldown(this.cooldownDuration));
@@ -188,7 +207,6 @@ public class Weapon : MonoBehaviour
             {
                 GameObject missile = Instantiate(prefabMissile);
                 missile.transform.position = script.gameObject.transform.TransformPoint(spawnOffset);
-                missile.transform.rotation = script.gameObject.transform.rotation;
                 missile.GetComponent<Missile>()._launcher = script;
                 missile.GetComponent<Missile>()._target = AimCheck(angle, color);
                 script.StartCoroutine(this.ICooldown(this.cooldownDuration));
@@ -201,7 +219,6 @@ public class Weapon : MonoBehaviour
             {
                 GameObject missile = Instantiate(prefabMissile);
                 missile.transform.position = script.gameObject.transform.TransformPoint(spawnOffset);
-                missile.transform.rotation = script.gameObject.transform.rotation;
                 missile.GetComponent<Missile>()._launcher = script;
                 missile.GetComponent<Missile>()._target = target;
                 script.StartCoroutine(this.ICooldown(this.cooldownDuration));
