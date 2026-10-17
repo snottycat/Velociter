@@ -82,7 +82,6 @@ public class Player : MonoBehaviour
         {
             Instantiate(_prefabDashUI, _dashCountUI.transform);
         }
-        GameManager._gameManager._currentDevice = GameManager.CurrentDevice.Unknow;
         _weapon._gun.bulletCountUI.text = _weapon._gun.bulletCount.ToString();
         UIChangeColor(_defaultUIColor);
         WeaponChange(1);
@@ -563,6 +562,7 @@ public class Player : MonoBehaviour
         _body.linearDamping = 1f;
         Time.timeScale = 0.2f;
         yield return new WaitForSecondsRealtime(slowMotionDuration);
+        Time.timeScale = 1f;
         GameManager._gameManager.SceneChange("Menu");
     }
 

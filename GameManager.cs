@@ -8,9 +8,7 @@ using TMPro;
 using UnityEngine.UI;
 using UnityEngine.EventSystems;
 using Random = UnityEngine.Random;
-using JetBrains.Annotations;
 using UnityEngine.InputSystem.LowLevel;
-using UnityEngine.iOS;
 
 public class GameManager : MonoBehaviour
 {
@@ -20,6 +18,7 @@ public class GameManager : MonoBehaviour
     public enum CurrentDevice {Gamepad, Keyboard, Mobile, Unknow}
     public GameState _gameState;
     public CurrentDevice _currentDevice;
+    public bool _sceneLoaded;
     public Texture2D _cursorSprite;
     public GameObject _asteroidPrefab;
     public GameObject _borderPrefab;
@@ -27,7 +26,7 @@ public class GameManager : MonoBehaviour
     public List<GameObject> _enemiesInScene = new List<GameObject>();
 
     [Header("Menu")]
-    public GameObject firstSelected;
+    public GameObject _firstSelected;
     public TMP_Text _versionDisplay;
     public GameObject _irisOfEye;
 
@@ -186,18 +185,47 @@ public class GameManager : MonoBehaviour
         {
             case Gamepad:
                 _currentDevice = CurrentDevice.Gamepad;
+                if (_gameState == GameState.InMenu && _sceneLoaded)
+                {
+                    if (EventSystem.current.currentSelectedGameObject == null)
+                    {
+                        _firstSelected.GetComponent<Selectable>().Select();
+                    }
+                }
+                if (Cursor.visible)
+                {
+                    Cursor.visible = false;
+                }
                 break;
             case Keyboard:
                 _currentDevice = CurrentDevice.Keyboard;
+                if (!Cursor.visible)
+                {
+                    Cursor.visible = true;
+                }
                 break;
             case Mouse:
                 _currentDevice = CurrentDevice.Keyboard;
+                if (!Cursor.visible)
+                {
+                    Cursor.visible = true;
+                }
                 break;
             case Touchscreen:
                 _currentDevice = CurrentDevice.Mobile;
+                if (Cursor.visible)
+                {
+                    Cursor.visible = false;
+                }
                 break;
         }
-        print($"le device est {_currentDevice}");
+        if (_currentDevice != CurrentDevice.Gamepad)
+        {
+            if (EventSystem.current.currentSelectedGameObject != null)
+            {
+                EventSystem.current.SetSelectedGameObject(null);
+            }
+        }
     }
 
     public void OnSceneLoaded(Scene scene, LoadSceneMode mode)
@@ -206,12 +234,9 @@ public class GameManager : MonoBehaviour
         {
             case "Menu":
                 _gameState = GameState.InMenu;
-                if (firstSelected != null && _currentDevice == CurrentDevice.Gamepad)
-                {
-                    EventSystem.current.SetSelectedGameObject(firstSelected);
-                }
                 _versionDisplay.text = Application.version;
                 Cursor.SetCursor(null, Vector2.zero, CursorMode.Auto);
+                _sceneLoaded = true;
                 break;
             case "WaveGame":
                 _gameState = GameState.InWaveGame;
@@ -246,6 +271,11 @@ public class GameManager : MonoBehaviour
         return EventSystem.current.IsPointerOverGameObject();
     }
 
+    public void SelectButton(Selectable target)
+    {
+        target.Select();
+    }
+
     public void CameraShake(int duration, float magnitude)
     {
         IEnumerator ICameraShake()
@@ -271,6 +301,7 @@ public class GameManager : MonoBehaviour
 
     public void SceneChange(string scene)
     {
+        _sceneLoaded = false;
         SceneManager.LoadScene(scene);
         StopAllCoroutines();
         _enemiesInScene.Clear();
